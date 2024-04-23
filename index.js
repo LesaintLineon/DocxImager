@@ -6,6 +6,8 @@ const JSZip = require('jszip');
 const {parseString,Builder} = require('xml2js');
 const uuid = require('uuid/v4');
 
+var inspect = require('eyes').inspector({maxLength: false})
+
 const IMAGE_URI = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image';
 const IMAGE_TYPE = 'image/png';
 
@@ -43,6 +45,7 @@ class DocxImager {
      * @returns {Promise}
      */
     async load(docx_path){
+        console.log("Loading Started ...")
         return  this.__loadDocx(docx_path).catch((e)=>{
             console.log(e);
         });
@@ -51,6 +54,7 @@ class DocxImager {
     async __loadDocx(docx_path){
         let zip = new JSZip();
         this.zip = await zip.loadAsync(fs.readFileSync(docx_path));
+        console.log("Finished loading");
     }
 
     /**
@@ -87,10 +91,10 @@ class DocxImager {
      * @param {String} type type of the template image
      * @returns {Promise}
      */
-    replaceWithLocalImage(image_path, image_id, type, cbk){
+    replaceWithLocalImage(image_path, image_id, old_type, new_type, cbk){
         this.__validateDocx();
         let image_buffer = fs.readFileSync(image_path);
-        this.__replaceImage(image_buffer, image_id, type, cbk);
+        this.__replaceImage(image_buffer, image_id, old_type, new_type, cbk);
     }
 
     /**
@@ -105,14 +109,18 @@ class DocxImager {
         this.__replaceImage(Buffer.from(base64_string, 'base64'), image_id, type, cbk);
     }
 
-    async __replaceImage(buffer, image_id, type, cbk){
+    async __replaceImage(buffer, image_id, old_type, new_type, cbk){
         //1. replace the image
         return new Promise((res, rej)=>{
             try{
-                let path = 'word/media/image'+image_id+'.'+type;
+                let path = 'word/media/image'+image_id+'.'+new_type;
+                this.__deleteFile(image_id,old_type);
                 this.zip.file(path, buffer);
+                this.__xmlImageConvertiseur();
+                console.log("image replaced");
                 res(true);
             }catch(e){
+                console.error(e);
                 rej();
             }
         });
@@ -160,11 +168,47 @@ class DocxImager {
     }
 
     /**
+     * Delete the image from the zipped folder system
+     * @param {String} image_id id of the image in the docx
+     * @param {String} type type of the image
+     */
+    async __deleteFile(image_id, type){
+        
+        let path = 'word/media/image'+image_id+'.'+type;
+        await this.zip.remove(path);
+    }
+
+    /**
+     * Change the extention of a image in the image's relationship in the document.xml.rels file
+     * @param {string} image_id id of the image in the docx
+     * @param {*} image_new_type type of the new image
+     */
+    async __xmlImageConvertiseur(){
+        try{
+            let content = await this.zip.file('word/_rels/document.xml.rels').async('nodebuffer');
+            parseString(content.toString(), (err, relation)=>{
+                if(err){
+                    console.log(err);       //TODO check if an error thrown will be catched by enclosed try catch
+                    rej(err);
+                }
+                
+                console.log(inspect(relation));
+                let builder = new Builder();
+                let modifiedXML = builder.buildObject(relation);
+                this.zip.file('word/_rels/document.xml.rels', modifiedXML);
+            });
+        }catch(e){
+           console.log(e);
+        }
+    }
+
+    /**
      * Saves the transformed docx.
      * @param {String} op_file_name Output file name with full path.
      * @returns {Promise}
      */
     async save(op_file_name){
+        console.log("Start saving ... ");
         if(!op_file_name){
             op_file_name = './merged.docx';
         }
@@ -172,6 +216,7 @@ class DocxImager {
             this.zip.generateNodeStream({streamFiles : true})
                 .pipe(fs.createWriteStream(op_file_name))
                 .on('finish', function(x){
+                    console.log("Saving finished");
                     res();
                 });
         });
