@@ -92,6 +92,7 @@ class DocxImager {
      * @returns {Promise}
      */
     replaceWithLocalImage(image_path, image_id, old_type, new_type, cbk){
+        console.log("Remplacement debut : "+image_id);
         this.__validateDocx();
         let image_buffer = fs.readFileSync(image_path);
         this.__replaceImage(image_buffer, image_id, old_type, new_type, cbk);
@@ -111,13 +112,15 @@ class DocxImager {
 
     async __replaceImage(buffer, image_id, old_type, new_type, cbk){
         //1. replace the image
-        return new Promise((res, rej)=>{
+        return new Promise(async (res, rej)=>{
             try{
                 let path = 'word/media/image'+image_id+'.'+new_type;
                 this.__deleteFile(image_id,old_type);
                 this.zip.file(path, buffer);
-                this.__xmlImageConvertiseur();
-                console.log("image replaced");
+                await this.__xmlImageConvertiseur(image_id, old_type, new_type, function(id) {
+                    console.log("fin id : "+id);
+                });
+                console.log("image replaced : "+image_id);
                 res(true);
             }catch(e){
                 console.error(e);
@@ -172,10 +175,10 @@ class DocxImager {
      * @param {String} image_id id of the image in the docx
      * @param {String} type type of the image
      */
-    async __deleteFile(image_id, type){
+    __deleteFile(image_id, type){
         
         let path = 'word/media/image'+image_id+'.'+type;
-        await this.zip.remove(path);
+        this.zip.remove(path);
     }
 
     /**
@@ -183,20 +186,17 @@ class DocxImager {
      * @param {string} image_id id of the image in the docx
      * @param {*} image_new_type type of the new image
      */
-    async __xmlImageConvertiseur(){
+    async __xmlImageConvertiseur(image_id, image_old_type, image_new_type, callback){
         try{
-            let content = await this.zip.file('word/_rels/document.xml.rels').async('nodebuffer');
-            parseString(content.toString(), (err, relation)=>{
-                if(err){
-                    console.log(err);       //TODO check if an error thrown will be catched by enclosed try catch
-                    rej(err);
-                }
-                
-                console.log(inspect(relation));
-                let builder = new Builder();
-                let modifiedXML = builder.buildObject(relation);
-                this.zip.file('word/_rels/document.xml.rels', modifiedXML);
-            });
+            console.log("debut id : "+image_id);
+            
+            let content = await this.zip.file('word/_rels/document.xml.rels').async("string");
+
+            content = content.replace(image_id+'.'+image_old_type, image_id+'.'+image_new_type);
+
+            this.zip.file('word/_rels/document.xml.rels', content);
+            callback(image_id);
+            
         }catch(e){
            console.log(e);
         }
