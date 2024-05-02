@@ -91,11 +91,17 @@ class DocxImager {
      * @param {String} type type of the template image
      * @returns {Promise}
      */
-    replaceWithLocalImage(image_path, image_id, old_type, new_type, cbk){
+    async replaceWithLocalImage(image_path, image_id, old_type, new_type, cbk){
         console.log("Remplacement debut : "+image_id);
-        this.__validateDocx();
-        let image_buffer = fs.readFileSync(image_path);
-        this.__replaceImage(image_buffer, image_id, old_type, new_type, cbk);
+        await this.__validateDocx();
+        await fs.readFile(image_path, (err, data) => {
+            if (err) {
+              console.error(err);
+              return;
+            }
+            this.__replaceImage(data, image_id, old_type, new_type, cbk);
+          });
+        
     }
 
     /**
