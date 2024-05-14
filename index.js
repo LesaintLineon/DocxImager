@@ -621,16 +621,25 @@ class DocxImager {
         });
     }
 
-    async extractLocalImage(savePath){
+    async extractLocalImages(){
         if (JSZip.support.uint8array) {
-
             
-            for(let [filename, file] of Object.entries(this.zip.folder('word/media').files)) {
-                // TODO Your code goes here
-                console.log(filename);
+            for(let [filename] of Object.entries(this.zip.files)) {
+                if (filename.includes('word/media/image')){
+
+                    this.zip.files[filename].async('uint8array').then(function (fileData) {
+                        
+                        fs.writeFile(filename, fileData, err => {
+                            if (err) {
+                                console.error(err);
+                            } else {
+                                console.log(filename);
+                            }
+                        });
+                    });
+                    
+                }
             }
-            
-
         }
     }
 
