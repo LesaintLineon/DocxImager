@@ -620,6 +620,20 @@ class DocxImager {
 
         });
     }
+
+    async extractLocalImage(savePath){
+        if (JSZip.support.uint8array) {
+
+            
+            for(let [filename, file] of Object.entries(this.zip.folder('word/media').files)) {
+                // TODO Your code goes here
+                console.log(filename);
+            }
+            
+
+        }
+    }
+
 }
 
 
