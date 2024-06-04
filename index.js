@@ -45,7 +45,6 @@ class DocxImager {
      * @returns {Promise}
      */
     async load(docx_path){
-        console.log("Loading Started ...")
         return  this.__loadDocx(docx_path).catch((e)=>{
             console.log(e);
         });
@@ -54,7 +53,6 @@ class DocxImager {
     async __loadDocx(docx_path){
         let zip = new JSZip();
         this.zip = await zip.loadAsync(fs.readFileSync(docx_path));
-        console.log("Finished loading");
     }
 
     /**
@@ -92,7 +90,6 @@ class DocxImager {
      * @returns {Promise}
      */
     async replaceWithLocalImage(image_path, image_id, old_type, new_type, cbk){
-        console.log("Remplacement debut : "+image_id);
         await this.__validateDocx();
         await fs.readFile(image_path, (err, data) => {
             if (err) {
@@ -123,10 +120,7 @@ class DocxImager {
                 let path = 'word/media/image'+image_id+'.'+new_type;
                 this.__deleteFile(image_id,old_type);
                 this.zip.file(path, buffer);
-                await this.__xmlImageConvertiseur(image_id, old_type, new_type, function(id) {
-                    console.log("fin id : "+id);
-                });
-                console.log("image replaced : "+image_id);
+                await this.__xmlImageConvertiseur(image_id, old_type, new_type, function() {});
                 res(true);
             }catch(e){
                 console.error(e);
@@ -193,9 +187,7 @@ class DocxImager {
      * @param {*} image_new_type type of the new image
      */
     async __xmlImageConvertiseur(image_id, image_old_type, image_new_type, callback){
-        try{
-            console.log("debut id : "+image_id);
-            
+        try{            
             let content = await this.zip.file('word/_rels/document.xml.rels').async("string");
 
             content = content.replace(image_id+'.'+image_old_type, image_id+'.'+image_new_type);
@@ -214,7 +206,6 @@ class DocxImager {
      * @returns {Promise}
      */
     async save(op_file_name){
-        console.log("Start saving ... ");
         if(!op_file_name){
             op_file_name = './merged.docx';
         }
@@ -222,7 +213,6 @@ class DocxImager {
             this.zip.generateNodeStream({streamFiles : true})
                 .pipe(fs.createWriteStream(op_file_name))
                 .on('finish', function(x){
-                    console.log("Saving finished");
                     res();
                 });
         });
